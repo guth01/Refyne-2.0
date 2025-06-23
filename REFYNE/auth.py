@@ -9,7 +9,10 @@ from models import Users
 from passlib.context import CryptContext
 from fastapi.security import OAuth2PasswordRequestForm, OAuth2PasswordBearer
 from jose import jwt, JWTError
+import os
+from dotenv import load_dotenv
 
+load_dotenv()
 
 router =APIRouter(
     prefix='/auth',
@@ -17,8 +20,9 @@ router =APIRouter(
 
 )
 
-SECRET_KEY='pistachio123654'
-ALGORITHM='HS256'
+SECRET_KEY = os.environ.get("SECRET_KEY")
+ALGORITHM = os.environ.get("ALGORITHM")
+
 bcrypt_context=CryptContext(schemes=['bcrypt'],deprecated='auto')
 oauth2_bearer=OAuth2PasswordBearer(tokenUrl='auth/token')
 
