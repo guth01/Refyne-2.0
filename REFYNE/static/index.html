@@ -1,0 +1,498 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CSV Data Enhancement Platform</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>CSV Data Enhancement Platform</h1>
+            <p>Transform your data with advanced AI-powered preprocessing</p>
+        </div>
+
+        <!-- Authentication Section -->
+        <div class="auth-section">
+            <div class="auth-tabs">
+                <button class="tab-btn active" onclick="showTab('login')">Login</button>
+                <button class="tab-btn" onclick="showTab('register')">Register</button>
+            </div>
+            
+            <!-- Login Tab -->
+            <div class="auth-controls" id="login-tab">
+                <div class="input-group">
+                    <label for="login-username">Username</label>
+                    <input type="text" id="login-username" placeholder="Enter your username">
+                </div>
+                <div class="input-group">
+                    <label for="login-password">Password</label>
+                    <input type="password" id="login-password" placeholder="Enter your password">
+                </div>
+                <button class="btn btn-primary" onclick="handleLogin()">Login</button>
+            </div>
+
+            <!-- Register Tab -->
+            <div class="auth-controls" id="register-tab" style="display: none;">
+                <div class="input-group">
+                    <label for="register-username">Username</label>
+                    <input type="text" id="register-username" placeholder="Choose a username">
+                </div>
+                <div class="input-group">
+                    <label for="register-password">Password</label>
+                    <input type="password" id="register-password" placeholder="Choose a password">
+                </div>
+                <button class="btn btn-primary" onclick="handleRegister()">Register</button>
+            </div>
+
+            <!-- Authenticated User Controls -->
+            <div class="auth-controls" id="authenticated-controls" style="display: none;">
+                <div class="user-info">
+                    <span>Welcome, <strong id="current-username"></strong>!</span>
+                    <button class="btn btn-secondary" onclick="logout()">Logout</button>
+                </div>
+            </div>
+
+            <div id="auth-status" class="status-message status-info" style="display: none;">
+                Please login to access the CSV processing features
+            </div>
+        </div>
+
+        <!-- Features Overview -->
+        <div class="feature-grid">
+            <div class="feature-card">
+                <h3>🧹 Data Cleaning</h3>
+                <p>Automatically handles missing values, removes duplicates, and optimizes data types for better performance.</p>
+            </div>
+            <div class="feature-card">
+                <h3>🔧 Feature Engineering</h3>
+                <p>Advanced feature synthesis using deep learning techniques to create meaningful new features from your data.</p>
+            </div>
+            <div class="feature-card">
+                <h3>📊 Quality Enhancement</h3>
+                <p>Removes highly correlated features, standardizes numerical data, and encodes categorical variables.</p>
+            </div>
+            <div class="feature-card">
+                <h3>⚡ Memory Efficient</h3>
+                <p>Processes large datasets in chunks to handle files of any size without memory constraints.</p>
+            </div>
+        </div>
+
+        <!-- File Upload Section -->
+        <div class="upload-section" id="upload-section" style="display: none;">
+            <div class="upload-area" onclick="document.getElementById('file-input').click()" 
+                 ondrop="handleDrop(event)" ondragover="handleDragOver(event)" ondragleave="handleDragLeave(event)">
+                <span class="upload-icon">📁</span>
+                <div class="upload-text">Click to upload or drag and drop your CSV file</div>
+                <div class="upload-subtext">Supports files up to 100MB • CSV format only</div>
+            </div>
+            <input type="file" id="file-input" class="file-input" accept=".csv" onchange="handleFileSelect(event)">
+        </div>
+
+        <!-- File Information -->
+        <div class="file-info" id="file-info">
+            <div class="file-details">
+                <div>
+                    <strong>File:</strong> <span id="file-name"></span>
+                </div>
+                <div>
+                    <strong>Size:</strong> <span id="file-size"></span>
+                </div>
+                <div>
+                    <button class="btn btn-primary" onclick="processFile()">Process CSV</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Progress Section -->
+        <div class="progress-section" id="progress-section">
+            <div class="progress-bar">
+                <div class="progress-fill" id="progress-fill"></div>
+            </div>
+            <div class="progress-text" id="progress-text">Processing your data...</div>
+        </div>
+
+        <!-- Status Messages -->
+        <div id="status-messages"></div>
+
+        <!-- Results Section -->
+        <div class="result-section" id="result-section">
+            <h3>✅ Processing Complete!</h3>
+            <p>Your enhanced CSV file is ready for download.</p>
+            <div style="margin-top: 20px;">
+                <button class="btn btn-primary" id="download-btn" onclick="downloadFile()">
+                    📥 Download Enhanced CSV
+                </button>
+                <button class="btn btn-secondary" onclick="resetUpload()">Process Another File</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let authToken = localStorage.getItem('authToken');
+        let currentUser = JSON.parse(localStorage.getItem('currentUser') || 'null');
+        let selectedFile = null;
+        let processedFileUrl = null;
+        
+        // API Configuration - Update this URL to match your FastAPI backend
+        const API_BASE_URL = 'http://localhost:8000';
+        
+        // Check authentication status on page load
+        document.addEventListener('DOMContentLoaded', function() {
+            checkAuthStatus();
+            loadFileInfo();
+        });
+
+        function showTab(tabName) {
+            // Hide all tabs
+            document.getElementById('login-tab').style.display = 'none';
+            document.getElementById('register-tab').style.display = 'none';
+            
+            // Remove active class from all buttons
+            document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+            
+            // Show selected tab
+            document.getElementById(tabName + '-tab').style.display = 'block';
+            event.target.classList.add('active');
+        }
+
+        function checkAuthStatus() {
+            if (authToken && currentUser) {
+                showAuthenticatedState();
+            } else {
+                showUnauthenticatedState();
+            }
+        }
+
+        function showAuthenticatedState() {
+            document.getElementById('login-tab').style.display = 'none';
+            document.getElementById('register-tab').style.display = 'none';
+            document.getElementById('authenticated-controls').style.display = 'block';
+            document.getElementById('current-username').textContent = currentUser.username;
+            document.getElementById('auth-status').style.display = 'none';
+            document.getElementById('upload-section').style.display = 'block';
+            
+            // Hide auth tabs
+            document.querySelector('.auth-tabs').style.display = 'none';
+        }
+
+        function showUnauthenticatedState() {
+            document.getElementById('authenticated-controls').style.display = 'none';
+            document.getElementById('auth-status').style.display = 'block';
+            document.getElementById('upload-section').style.display = 'none';
+            document.getElementById('file-info').style.display = 'none';
+            document.getElementById('progress-section').style.display = 'none';
+            document.getElementById('result-section').style.display = 'none';
+            
+            // Show auth tabs
+            document.querySelector('.auth-tabs').style.display = 'block';
+            showTab('login');
+        }
+
+        async function handleLogin() {
+            const username = document.getElementById('login-username').value.trim();
+            const password = document.getElementById('login-password').value.trim();
+            
+            if (!username || !password) {
+                showStatusMessage('Please enter both username and password.', 'error');
+                return;
+            }
+
+            try {
+                showStatusMessage('Authenticating...', 'info');
+                
+                // Create form data as required by FastAPI OAuth2PasswordRequestForm
+                const formData = new FormData();
+                formData.append('username', username);
+                formData.append('password', password);
+
+                const response = await fetch(`${API_BASE_URL}/auth/token`, {
+                    method: 'POST',
+                    body: formData
+                });
+
+                if (response.ok) {
+                    const data = await response.json();
+                    authToken = data.access_token;
+                    currentUser = { username: username };
+                    
+                    localStorage.setItem('authToken', authToken);
+                    localStorage.setItem('currentUser', JSON.stringify(currentUser));
+                    
+                    showAuthenticatedState();
+                    showStatusMessage('Login successful!', 'success');
+                    
+                    // Clear password field
+                    document.getElementById('login-password').value = '';
+                } else {
+                    const errorData = await response.json();
+                    throw new Error(errorData.detail || 'Authentication failed');
+                }
+            } catch (error) {
+                showStatusMessage(`Login failed: ${error.message}`, 'error');
+                console.error('Auth error:', error);
+            }
+        }
+
+        async function handleRegister() {
+            const username = document.getElementById('register-username').value.trim();
+            const password = document.getElementById('register-password').value.trim();
+            
+            if (!username || !password) {
+                showStatusMessage('Please enter both username and password.', 'error');
+                return;
+            }
+
+            if (password.length < 6) {
+                showStatusMessage('Password must be at least 6 characters long.', 'error');
+                return;
+            }
+
+            try {
+                showStatusMessage('Creating account...', 'info');
+                
+                const response = await fetch(`${API_BASE_URL}/auth/`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        username: username,
+                        password: password
+                    })
+                });
+
+                if (response.ok) {
+                    const data = await response.json();
+                    showStatusMessage('Account created successfully! Please login.', 'success');
+                    
+                    // Clear form and switch to login tab
+                    document.getElementById('register-username').value = '';
+                    document.getElementById('register-password').value = '';
+                    document.getElementById('login-username').value = username;
+                    showTab('login');
+                } else {
+                    const errorData = await response.json();
+                    throw new Error(errorData.detail || 'Registration failed');
+                }
+            } catch (error) {
+                showStatusMessage(`Registration failed: ${error.message}`, 'error');
+                console.error('Registration error:', error);
+            }
+        }
+
+        function logout() {
+            authToken = null;
+            currentUser = null;
+            localStorage.removeItem('authToken');
+            localStorage.removeItem('currentUser');
+            
+            // Clear form fields
+            document.getElementById('login-username').value = '';
+            document.getElementById('login-password').value = '';
+            document.getElementById('register-username').value = '';
+            document.getElementById('register-password').value = '';
+            
+            resetUpload();
+            showUnauthenticatedState();
+            showStatusMessage('Logged out successfully.', 'info');
+        }
+
+        async function loadFileInfo() {
+            if (!authToken) return;
+            
+            try {
+                const response = await fetch(`${API_BASE_URL}/file-info`, {
+                    headers: {
+                        'Authorization': `Bearer ${authToken}`
+                    }
+                });
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    console.log('File info loaded:', data);
+                } else if (response.status === 401) {
+                    // Token expired, logout user
+                    logout();
+                }
+            } catch (error) {
+                console.error('Failed to load file info:', error);
+            }
+        }
+
+        function handleDragOver(event) {
+            event.preventDefault();
+            document.querySelector('.upload-area').classList.add('drag-over');
+        }
+
+        function handleDragLeave(event) {
+            event.preventDefault();
+            document.querySelector('.upload-area').classList.remove('drag-over');
+        }
+
+        function handleDrop(event) {
+            event.preventDefault();
+            document.querySelector('.upload-area').classList.remove('drag-over');
+            
+            const files = event.dataTransfer.files;
+            if (files.length > 0) {
+                handleFile(files[0]);
+            }
+        }
+
+        function handleFileSelect(event) {
+            const file = event.target.files[0];
+            if (file) {
+                handleFile(file);
+            }
+        }
+
+        function handleFile(file) {
+            if (!file.name.toLowerCase().endsWith('.csv')) {
+                showStatusMessage('Please select a CSV file.', 'error');
+                return;
+            }
+
+            if (file.size > 100 * 1024 * 1024) { // 100MB limit
+                showStatusMessage('File size exceeds 100MB limit.', 'error');
+                return;
+            }
+
+            selectedFile = file;
+            
+            // Show file information
+            document.getElementById('file-name').textContent = file.name;
+            document.getElementById('file-size').textContent = formatFileSize(file.size);
+            document.getElementById('file-info').style.display = 'block';
+            
+            showStatusMessage('File selected successfully. Click "Process CSV" to enhance your data.', 'success');
+        }
+
+        async function processFile() {
+            if (!selectedFile || !authToken) {
+                showStatusMessage('Please select a file and ensure you are authenticated.', 'error');
+                return;
+            }
+
+            // Show progress section
+            document.getElementById('progress-section').style.display = 'block';
+            document.getElementById('result-section').style.display = 'none';
+            
+            const formData = new FormData();
+            formData.append('file', selectedFile);
+
+            try {
+                updateProgress(10, 'Uploading file...');
+                
+                const response = await fetch(`${API_BASE_URL}/process-csv`, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${authToken}`
+                    },
+                    body: formData
+                });
+
+                if (response.ok) {
+                    updateProgress(50, 'Processing data...');
+                    
+                    // Get the processed file blob
+                    const blob = await response.blob();
+                    
+                    updateProgress(90, 'Finalizing...');
+                    
+                    // Create download URL
+                    processedFileUrl = URL.createObjectURL(blob);
+                    
+                    updateProgress(100, 'Complete!');
+                    
+                    setTimeout(() => {
+                        document.getElementById('progress-section').style.display = 'none';
+                        document.getElementById('result-section').style.display = 'block';
+                        showStatusMessage('CSV processing completed successfully!', 'success');
+                    }, 500);
+                    
+                } else if (response.status === 401) {
+                    // Token expired
+                    logout();
+                    throw new Error('Session expired. Please login again.');
+                } else {
+                    const errorData = await response.json();
+                    throw new Error(errorData.detail || 'Processing failed. Please try again.');
+                }
+            } catch (error) {
+                document.getElementById('progress-section').style.display = 'none';
+                showStatusMessage(`Processing failed: ${error.message}`, 'error');
+                console.error('Processing error:', error);
+            }
+        }
+
+        function downloadFile() {
+            if (processedFileUrl) {
+                const a = document.createElement('a');
+                a.href = processedFileUrl;
+                a.download = `enhanced_${selectedFile.name}`;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                
+                showStatusMessage('File downloaded successfully!', 'success');
+            }
+        }
+
+        function resetUpload() {
+            selectedFile = null;
+            if (processedFileUrl) {
+                URL.revokeObjectURL(processedFileUrl);
+                processedFileUrl = null;
+            }
+            document.getElementById('file-input').value = '';
+            document.getElementById('file-info').style.display = 'none';
+            document.getElementById('progress-section').style.display = 'none';
+            document.getElementById('result-section').style.display = 'none';
+            clearStatusMessages();
+        }
+
+        function updateProgress(percentage, text) {
+            document.getElementById('progress-fill').style.width = percentage + '%';
+            document.getElementById('progress-text').textContent = text;
+        }
+
+        function showStatusMessage(message, type) {
+            const statusContainer = document.getElementById('status-messages');
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `status-message status-${type}`;
+            messageDiv.textContent = message;
+            
+            statusContainer.appendChild(messageDiv);
+            
+            // Auto-remove after 5 seconds
+            setTimeout(() => {
+                if (messageDiv.parentNode) {
+                    messageDiv.parentNode.removeChild(messageDiv);
+                }
+            }, 5000);
+        }
+
+        function clearStatusMessages() {
+            document.getElementById('status-messages').innerHTML = '';
+        }
+
+        function formatFileSize(bytes) {
+            if (bytes === 0) return '0 Bytes';
+            const k = 1024;
+            const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+            const i = Math.floor(Math.log(bytes) / Math.log(k));
+            return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+        }
+
+        // Handle token expiration automatically
+        setInterval(() => {
+            if (authToken) {
+                loadFileInfo(); // This will logout if token is expired
+            }
+        }, 60000); // Check every minute
+    </script>
+
+</body>
+</html>
