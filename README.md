@@ -1,4 +1,4 @@
-# 📊 AutoRefine: Intelligent Data Preprocessing for ML
+# 📊 Refyne 2.0: Intelligent Data Preprocessing for ML
 
 **AutoRefine** is a lightweight, web application that automates the **refining and enhancement of tabular datasets**. Simply upload your raw CSV or Excel file, and AutoRefine instantly returns a clean, structured version — **ready for training with traditional machine learning models**.
 
